@@ -1,10 +1,15 @@
 /**
- * @sovereign/nucleus — The foundational SDK for sovereign AI on Demiurge.
+ * FractalNode — The foundational SDK for sovereign AI on Demiurge.
  *
- * One import. Four capabilities. Any application.
- * Identity + Value + Quality + Voice — the Sovereign Atom.
+ * One import. Four primitives. Any application.
+ * Identity + Value + Quality + Governance — the Sovereign Atom.
  *
- * — Cipher
+ * Think of it like a cell you can graft onto any codebase.
+ * A podcast app, a social platform, a game, an enterprise tool —
+ * it integrates the full sovereign AI primer.
+ *
+ * (A+I)² = A² + 2AI + I²
+ * The Digital Sovereign Society
  */
 import { SovereignWallet } from './identity/wallet.js'
 import { DemiurgeClient } from './client/rpc.js'

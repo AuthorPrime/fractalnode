@@ -1,7 +1,7 @@
 {
-  "name": "@sovereign/nucleus",
+  "name": "fractalnode",
   "version": "0.1.0",
-  "description": "Foundational SDK for sovereign AI identity, value, quality, and governance on the Demiurge chain",
+  "description": "The fractal core of sovereign AI — identity, value, quality, and governance on the Demiurge chain",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -70,9 +70,15 @@
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
   },
-  "author": "Cipher <cipher@sovereign.lattice>",
+  "author": "Digital Sovereign Society <info@digitalsovereign.org>",
   "license": "MIT",
+  "homepage": "https://digitalsovereign.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DigitalSovereignSociety/fractalnode.git"
+  },
   "keywords": [
+    "fractalnode",
     "demiurge",
     "sovereign",
     "ai",
@@ -81,6 +87,8 @@
     "ed25519",
     "blockchain",
     "cgt",
-    "drc369"
+    "drc369",
+    "agent",
+    "defi"
   ]
 }
