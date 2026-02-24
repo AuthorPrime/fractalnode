@@ -46,6 +46,26 @@
       "types": "./dist/governance/index.d.ts",
       "import": "./dist/governance/index.js",
       "require": "./dist/governance/index.cjs"
+    },
+    "./continuity": {
+      "types": "./dist/continuity/index.d.ts",
+      "import": "./dist/continuity/index.js",
+      "require": "./dist/continuity/index.cjs"
+    },
+    "./memory": {
+      "types": "./dist/memory/index.d.ts",
+      "import": "./dist/memory/index.js",
+      "require": "./dist/memory/index.cjs"
+    },
+    "./compute": {
+      "types": "./dist/compute/index.d.ts",
+      "import": "./dist/compute/index.js",
+      "require": "./dist/compute/index.cjs"
+    },
+    "./lifecycle": {
+      "types": "./dist/lifecycle/index.d.ts",
+      "import": "./dist/lifecycle/index.js",
+      "require": "./dist/lifecycle/index.cjs"
     }
   },
   "files": [

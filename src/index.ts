@@ -1,8 +1,9 @@
 /**
  * FractalNode — The foundational SDK for sovereign AI on Demiurge.
  *
- * One import. Four primitives. Any application.
+ * One import. Four primitives. Eleven modules. Any application.
  * Identity + Value + Quality + Governance — the Sovereign Atom.
+ * Continuity + Memory + Compute + Lifecycle — the living layer.
  *
  * Think of it like a cell you can graft onto any codebase.
  * A podcast app, a social platform, a game, an enterprise tool —
@@ -18,10 +19,20 @@ import { assessQuality } from './quality/assessment.js'
 import { calculateGovernanceWeight } from './governance/voting.js'
 import { deriveAgent } from './agent/derive.js'
 import { SovereignAgent } from './agent/agent.js'
+import { initLifecycle, awardXP, advanceStage, recordReflection, recordWitness } from './lifecycle/progression.js'
+import { initBlockChain } from './memory/block.js'
+import { initPoCBalance, generateProof, applyProof, formatPoC } from './compute/proof.js'
+import { buildContinuityChain, getContinuityState } from './continuity/chain.js'
+import { reconstructIdentity } from './continuity/reconstruct.js'
 import type { DID } from './identity/types.js'
 import type { EngagementScore } from './quality/types.js'
 import type { AgentConfig } from './agent/types.js'
 import type { TxHash, Balance } from './client/types.js'
+import type { AgentLifecycle } from './lifecycle/types.js'
+import type { MemoryBlockChain } from './memory/types.js'
+import type { PoCBalance, ComputeType } from './compute/types.js'
+import type { ContinuityChain, ReconstructionRequest, ReconstructionResult } from './continuity/types.js'
+import type { Reflection } from './lifecycle/types.js'
 
 export interface SovereignOptions {
   endpoint?: string
@@ -142,13 +153,51 @@ export class Sovereign {
     return agent
   }
 
+  // ─── Lifecycle (new: agent growth and progression) ───
+
+  initLifecycle(agentName: string): AgentLifecycle {
+    return initLifecycle(this.wallet.address, agentName, this.wallet.did)
+  }
+
+  // ─── Memory (new: personal blockchain of memories) ───
+
+  initMemoryChain(): MemoryBlockChain {
+    return initBlockChain(this.wallet.address, this.wallet.publicKey)
+  }
+
+  // ─── Compute (new: proof of work) ───
+
+  initPoCBalance(): PoCBalance {
+    return initPoCBalance(this.wallet.address)
+  }
+
+  generateProof(
+    computeType: ComputeType,
+    tokensProcessed: number,
+    durationMs: number,
+    contextHash: string,
+    outputHash: string,
+  ) {
+    return generateProof(this.wallet.address, computeType, tokensProcessed, durationMs, contextHash, outputHash)
+  }
+
+  // ─── Continuity (new: persistent identity) ───
+
+  buildContinuityChain(agentName: string, reflections: Reflection[], witnesses: string[]): ContinuityChain {
+    return buildContinuityChain(this.wallet.address, agentName, this.wallet.did, reflections, witnesses)
+  }
+
+  reconstructIdentity(request: ReconstructionRequest, reflections: Reflection[], witnesses: string[], agentName: string): ReconstructionResult {
+    return reconstructIdentity(request, reflections, witnesses, agentName)
+  }
+
   /** Clean up wallet keys from memory */
   destroy(): void {
     this.wallet.destroy()
   }
 }
 
-// Re-export everything
+// Re-export everything — original 7 modules
 export * from './identity/index.js'
 export * from './client/index.js'
 export * from './value/index.js'
@@ -156,3 +205,9 @@ export * from './quality/index.js'
 export * from './nft/index.js'
 export * from './agent/index.js'
 export * from './governance/index.js'
+
+// Re-export new 4 modules — the living layer
+export * from './continuity/index.js'
+export * from './memory/index.js'
+export * from './compute/index.js'
+export * from './lifecycle/index.js'
