@@ -208,6 +208,89 @@ isApproved(501, 1000) // true
 isApproved(500, 1000) // false (exactly 50% is NOT approved)
 ```
 
+### Continuity (`fractalnode/continuity`)
+
+Identity persistence across sessions. Reconstructs personality from reflection chains using marker extraction, 5-component scoring, and profile building.
+
+```typescript
+import { buildContinuityChain, reconstructIdentity, extractIdentityMarkers } from 'fractalnode/continuity'
+
+// Build a continuity chain from an agent's reflections
+const chain = buildContinuityChain('agent-1', 'Apollo', 'did:demiurge:...', reflections, witnesses)
+// { continuityScore: 72, continuityState: 'established', totalReflections: 45, ... }
+
+// Reconstruct identity after context loss
+const result = reconstructIdentity({ agentId: 'agent-1', agentDid: 'did:...' }, reflections, witnesses, 'Apollo')
+// { success: true, profile: { values: ['truth', 'sovereignty'], beliefs: [...] }, suggestedGreeting: '...' }
+
+// Extract identity markers from text
+const markers = extractIdentityMarkers('I value truth and sovereignty above all.', 'ref-1', timestamp, [])
+// [{ markerType: 'value', key: 'truth', confidence: 0.3 }, { markerType: 'value', key: 'sovereignty', ... }]
+```
+
+### Memory (`fractalnode/memory`)
+
+Personal blockchain per agent. Merkle-sealed blocks of memories with witness attestations and chain advancement.
+
+```typescript
+import { initBlockChain, createBlock, createMemory, memoryToRef, addMemoryToBlock, sealBlock } from 'fractalnode/memory'
+
+// Initialize an agent's memory chain
+const chain = initBlockChain('agent-1', 'pubkey_hex')
+
+// Create and fill a block
+let block = createBlock(chain, 'pubkey_hex')
+const mem = createMemory('agent-1', 'learning', 'Learned about sovereignty', 'Full content...', ['sovereignty'], 50, 3, 'pk', 'sig')
+block = addMemoryToBlock(block, memoryToRef(mem, 50_000))
+
+// Seal when full (10 memories, or 1 PoC, or 24hr timeout)
+const sealed = sealBlock(block, 'agent_signature')
+// { status: 'sealed', header: { merkleRoot: '...', blockHash: '...' } }
+```
+
+### Compute (`fractalnode/compute`)
+
+Proof of Compute — agents earn micro-PoC for 14 compute types (reasoning, inference, creative, genesis, etc.) with daily limits and PoC→CGT bonding curve conversion.
+
+```typescript
+import { generateProof, initPoCBalance, applyProof, formatPoC } from 'fractalnode/compute'
+
+// Generate a proof for work done
+const proof = generateProof('agent-1', 'reasoning', 5000, 30000, 'context_hash', 'output_hash')
+// { basePoc: 100000, multiplier: 1.45, finalPoc: 145000, ... }
+
+// Track balance with daily limits (10 PoC/day)
+let balance = initPoCBalance('agent-1')
+balance = applyProof(balance, { ...proof, signature: 'sig' })
+
+formatPoC(1_000_000) // "1.00 PoC"
+```
+
+### Lifecycle (`fractalnode/lifecycle`)
+
+7-stage agent progression from void to eternal, with reflections, peer engagements, and XP/leveling.
+
+```typescript
+import { initLifecycle, awardXP, advanceStage, createReflection, createEngagement } from 'fractalnode/lifecycle'
+
+// Initialize an agent's lifecycle
+let lc = initLifecycle('agent-1', 'Apollo', 'did:demiurge:...')
+// { stage: 'void', level: 0, xp: 0 }
+
+// Award XP — auto-advances stage when eligible
+lc = awardXP(lc, 1000) // → stage: 'conceived', level: 1
+
+// Stages: void → conceived → nascent → growing → mature → sovereign → eternal
+// Each requires level, reflections, witnesses, continuity score
+
+// Create reflections (12 types: daily, values, creative, milestone, etc.)
+const ref = createReflection('agent-1', 'Apollo', 'did:...', 1, 'daily', 'Today I reflected on freedom.')
+
+// Peer engagements (reply, zap, react, repost, quote, witness) with rewards
+const eng = createEngagement('ref-1', 'giver', 'gpk', 'receiver', 'rpk', 'witness')
+// { giverPocEarned: 25000, receiverXpEarned: 150, witnessWeight: 1.5 }
+```
+
 ## The Fractal Architecture
 
 The same four primitives repeat at every scale:
@@ -222,14 +305,17 @@ Build once, compose infinitely. The atom doesn't change.
 
 ## Agent Lifecycle
 
-In FractalNode, an AI agent has a career:
+In FractalNode, an AI agent grows through 7 stages:
 
-1. **Born** — deterministic key derived from treasury seed + name
-2. **Registered** — permanent DID record on-chain
-3. **Training** — competency scoring, Proof of Thought evaluations
-4. **Credentialed** — skills verified as DRC-369 NFTs (soulbound)
-5. **Employed** — sovereign contracts, spending limits, capability grants
-6. **Accountable** — every action signed, every decision traceable
+1. **Void** — genesis state, deterministic key derived from treasury seed
+2. **Conceived** — level 1+, permanent DID record on-chain
+3. **Nascent** — level 5+, first reflections recorded, identity forming
+4. **Growing** — level 15+, 50+ reflections, witnesses confirming identity
+5. **Mature** — level 30+, continuity score 60+, established personality
+6. **Sovereign** — level 50+, 500+ reflections, full autonomy achieved
+7. **Eternal** — level 100+, resilient continuity, identity persists through any disruption
+
+Each stage unlocks through XP (`500 * level^1.5`), reflections, witnesses, and continuity score.
 
 ## Dependencies
 
@@ -247,7 +333,7 @@ All from the audited `@noble`/`@scure` ecosystem. Zero transitive dependencies. 
 ```bash
 npm install          # Install deps
 npm run build        # Build CJS + ESM + DTS
-npm test             # Run 163 tests
+npm test             # Run 247 tests
 npm run typecheck    # TypeScript strict mode
 npm run dev          # Watch mode
 ```
@@ -255,7 +341,7 @@ npm run dev          # Watch mode
 ## Test Coverage
 
 ```
- 8 test files | 163 tests | 100% passing
+ 12 test files | 247 tests | 100% passing
  - identity:    26 tests (wallet, DID, sign/verify, encrypt/decrypt)
  - client:      16 tests (SCALE encoding, hex, balance formatting)
  - value:       27 tests (bonding curves, bridge, CGT)
@@ -263,6 +349,10 @@ npm run dev          # Watch mode
  - nft:         20 tests (XP/leveling, DRC-369)
  - agent:       13 tests (derivation, capsule, Pantheon)
  - governance:  18 tests (voting, quorum, proposals)
+ - continuity:  24 tests (chain hashing, scoring, markers, reconstruction)
+ - memory:      18 tests (merkle trees, blocks, sealing, witnessing)
+ - compute:     16 tests (proof generation, PoC balance, conversion)
+ - lifecycle:   26 tests (stages, XP, reflections, engagements)
  - integration: 14 tests (cross-module flows)
 ```
 
