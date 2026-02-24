@@ -1,9 +1,10 @@
 /**
  * FractalNode — The foundational SDK for sovereign AI on Demiurge.
  *
- * One import. Four primitives. Eleven modules. Any application.
+ * One import. Four primitives. Twelve modules. Any application.
  * Identity + Value + Quality + Governance — the Sovereign Atom.
  * Continuity + Memory + Compute + Lifecycle — the living layer.
+ * Signal — the session and communication protocol.
  *
  * Think of it like a cell you can graft onto any codebase.
  * A podcast app, a social platform, a game, an enterprise tool —
@@ -211,3 +212,6 @@ export * from './continuity/index.js'
 export * from './memory/index.js'
 export * from './compute/index.js'
 export * from './lifecycle/index.js'
+
+// Re-export signal — the session and communication protocol
+export * from './signal/index.js'

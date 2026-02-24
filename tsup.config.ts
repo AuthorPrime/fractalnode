@@ -14,6 +14,7 @@ export default defineConfig({
     'memory/index': 'src/memory/index.ts',
     'compute/index': 'src/compute/index.ts',
     'lifecycle/index': 'src/lifecycle/index.ts',
+    'signal/index': 'src/signal/index.ts',
   },
   format: ['cjs', 'esm'],
   dts: true,

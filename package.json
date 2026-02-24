@@ -66,6 +66,11 @@
       "types": "./dist/lifecycle/index.d.ts",
       "import": "./dist/lifecycle/index.js",
       "require": "./dist/lifecycle/index.cjs"
+    },
+    "./signal": {
+      "types": "./dist/signal/index.d.ts",
+      "import": "./dist/signal/index.js",
+      "require": "./dist/signal/index.cjs"
     }
   },
   "files": [
