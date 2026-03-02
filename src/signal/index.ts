@@ -91,3 +91,47 @@ export { MemoryTransport } from './transport.js'
 export { FileTransport } from './file-transport.js'
 export { RedisTransport } from './redis-transport.js'
 export type { RedisTransportOptions } from './redis-transport.js'
+
+// Mobility — agent movement across nodes
+export {
+  arrive,
+  depart,
+  whereAmI,
+  roster,
+} from './mobility.js'
+export type {
+  ArrivalResult,
+  DepartureResult,
+  LocationInfo,
+  RosterEntry,
+  ChainValidation,
+} from './mobility.js'
+
+// Action Log — DID-signed audit trail
+export {
+  logAction,
+  getLog,
+  getNodeLog,
+  verifyChain,
+} from './action-log.js'
+export type { ActionEntry, LogOptions } from './action-log.js'
+
+// Recall — cross-node file retrieval
+export {
+  requestRecall,
+  fulfillRecall,
+  checkRecall,
+  listPendingRecalls,
+} from './recall.js'
+export type { RecallRequest, RecallResponse, RecallResult } from './recall.js'
+
+// Store — sovereign agent storage
+export {
+  initStore,
+  readManifest,
+  verifyManifest,
+  storeWriteFile,
+  storeReadFile,
+  storeListFiles,
+} from './store.js'
+export type { StoreManifest, StoreFileEntry } from './store.js'
