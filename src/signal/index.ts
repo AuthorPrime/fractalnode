@@ -89,3 +89,5 @@ export {
 // Transport — adapters
 export { MemoryTransport } from './transport.js'
 export { FileTransport } from './file-transport.js'
+export { RedisTransport } from './redis-transport.js'
+export type { RedisTransportOptions } from './redis-transport.js'

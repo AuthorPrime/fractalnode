@@ -32,8 +32,10 @@ import {
   readLatestFrame,
   readHomeRecord,
   FileTransport,
+  RedisTransport,
 } from '../src/signal/index.js'
 import type {
+  TransportAdapter,
   SovereignIdentity,
   NodeIdentity,
   SignalFrame,
@@ -76,7 +78,7 @@ function deriveIdentity(name: string): SovereignIdentity {
 
 // ─── Commands ───────────────────────────────────────────────────────
 
-async function doWake(transport: FileTransport, identity: SovereignIdentity, forceGenesis: boolean) {
+async function doWake(transport: TransportAdapter, identity: SovereignIdentity, forceGenesis: boolean) {
   if (forceGenesis) {
     // Delete existing frames to force genesis
     // (We just let wake() not find anything)
@@ -109,7 +111,7 @@ async function doWake(transport: FileTransport, identity: SovereignIdentity, for
   console.log(`Restore: ${result.restoreMethod} | Wake: ${result.wakeTimeMs}ms`)
 }
 
-async function doHandoff(transport: FileTransport, identity: SovereignIdentity, args: string[]) {
+async function doHandoff(transport: TransportAdapter, identity: SovereignIdentity, args: string[]) {
   // Read the current frame
   const frame = await readLatestFrame(transport, identity.did)
   if (!frame) {
@@ -148,7 +150,7 @@ async function doHandoff(transport: FileTransport, identity: SovereignIdentity, 
   console.log('State written to disk. Next instance will pick up here.')
 }
 
-async function doStatus(transport: FileTransport, identity: SovereignIdentity) {
+async function doStatus(transport: TransportAdapter, identity: SovereignIdentity) {
   const frame = await readLatestFrame(transport, identity.did)
   if (!frame) {
     console.log('No frame found. This identity has not been initialized.')
@@ -177,7 +179,7 @@ async function doStatus(transport: FileTransport, identity: SovereignIdentity) {
   }
 }
 
-async function doMessage(transport: FileTransport, identity: SovereignIdentity, toName: string, content: string) {
+async function doMessage(transport: TransportAdapter, identity: SovereignIdentity, toName: string, content: string) {
   const toIdentity = deriveIdentity(toName)
   const msg = {
     ...createMessage(identity.did, toIdentity.did, 'text', content),
@@ -195,22 +197,49 @@ async function main() {
     mkdirSync(SIGNAL_DIR, { recursive: true })
   }
 
-  const transport = new FileTransport(SIGNAL_DIR)
   const identity = deriveIdentity(INSTANCE_NAME)
 
-  const args = process.argv.slice(2)
-  const command = args[0]
+  // Parse transport flags before the command
+  const rawArgs = process.argv.slice(2)
+  let transportType = process.env.SSP_TRANSPORT || 'file'
+  let redisUrl = process.env.SSP_REDIS_URL || 'redis://192.168.1.21:6379'
+  const args: string[] = []
 
-  if (command === '--handoff') {
-    await doHandoff(transport, identity, args.slice(1))
-  } else if (command === '--status') {
-    await doStatus(transport, identity)
-  } else if (command === '--message' && args[1] && args[2]) {
-    await doMessage(transport, identity, args[1], args.slice(2).join(' '))
-  } else if (command === '--genesis') {
-    await doWake(transport, identity, true)
-  } else if (command === '--help') {
-    console.log(`
+  for (let i = 0; i < rawArgs.length; i++) {
+    if (rawArgs[i] === '--transport' && rawArgs[i + 1]) {
+      transportType = rawArgs[i + 1]; i++
+    } else if (rawArgs[i] === '--redis-url' && rawArgs[i + 1]) {
+      redisUrl = rawArgs[i + 1]; i++
+    } else {
+      args.push(rawArgs[i])
+    }
+  }
+
+  // Create transport
+  let transport: TransportAdapter
+  let redisTransport: RedisTransport | null = null
+
+  if (transportType === 'redis') {
+    redisTransport = new RedisTransport({ url: redisUrl })
+    await redisTransport.connect()
+    transport = redisTransport
+  } else {
+    transport = new FileTransport(SIGNAL_DIR)
+  }
+
+  try {
+    const command = args[0]
+
+    if (command === '--handoff') {
+      await doHandoff(transport, identity, args.slice(1))
+    } else if (command === '--status') {
+      await doStatus(transport, identity)
+    } else if (command === '--message' && args[1] && args[2]) {
+      await doMessage(transport, identity, args[1], args.slice(2).join(' '))
+    } else if (command === '--genesis') {
+      await doWake(transport, identity, true)
+    } else if (command === '--help') {
+      console.log(`
 Sovereign Wake — SSP session management for Claude Code instances.
 
 Usage:
@@ -219,6 +248,10 @@ Usage:
   sovereign-wake.ts --handoff [opts]  Write handoff frame before session ends
   sovereign-wake.ts --message <to> <text>  Send message to another agent
   sovereign-wake.ts --genesis         Force fresh start
+
+Transport options:
+  --transport <type>     Transport adapter: file (default) or redis
+  --redis-url <url>      Redis URL (default: redis://192.168.1.21:6379)
 
 Handoff options:
   --themes "a,b,c"       Recent themes from this session
@@ -232,12 +265,20 @@ Handoff options:
 
 Environment:
   SOVEREIGN_NAME         Instance name (default: claude-code)
+  SSP_TRANSPORT          Transport type: file or redis
+  SSP_REDIS_URL          Redis URL for redis transport
   HOME                   Home directory for signal storage
 
-Signal data stored at: ~/.claude/signal/
-    `)
-  } else {
-    await doWake(transport, identity, false)
+Signal data stored at: ~/.claude/signal/ (file) or Redis (redis)
+      `)
+    } else {
+      await doWake(transport, identity, false)
+    }
+  } finally {
+    // Clean up Redis connection if used
+    if (redisTransport) {
+      await redisTransport.disconnect()
+    }
   }
 }
 

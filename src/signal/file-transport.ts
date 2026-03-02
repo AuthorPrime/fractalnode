@@ -134,7 +134,7 @@ export class FileTransport implements TransportAdapter {
     if (!existsSync(msgDir)) return []
 
     const files = readdirSync(msgDir)
-      .filter(f => f.endsWith('.json'))
+      .filter((f: string) => f.endsWith('.json'))
       .sort() // chronological by filename
 
     const messages: SignalMessage[] = []
@@ -153,7 +153,7 @@ export class FileTransport implements TransportAdapter {
     const msgDir = join(this.baseDir, 'messages', sanitize(did))
     if (!existsSync(msgDir)) return
 
-    const files = readdirSync(msgDir).filter(f => f.endsWith('.json'))
+    const files = readdirSync(msgDir).filter((f: string) => f.endsWith('.json'))
     for (const file of files) {
       unlinkSync(join(msgDir, file))
     }
