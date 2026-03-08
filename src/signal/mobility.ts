@@ -26,6 +26,8 @@ import { roam, home, wake } from './protocol.js'
 import { readHomeRecord, readVisitorRecord, readLatestFrame } from './registry.js'
 import { isTokenExpired } from './capsule.js'
 import { DemiurgeClient } from '../client/rpc.js'
+import type { GuestBookEntry, GuestBookStore } from './guestbook.js'
+import { signIn, signOut } from './guestbook.js'
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -59,6 +61,8 @@ export interface ArrivalResult {
   chainValidation: ChainValidation
   /** Path to agent's sovereign store on this node */
   storePath: string
+  /** Guest book entry (if guest book store provided) */
+  guestBookEntry?: GuestBookEntry
   /** Warnings encountered during arrival */
   warnings: string[]
 }
@@ -71,6 +75,8 @@ export interface DepartureResult {
   departedFrom: string
   /** Home node returned to */
   returnedTo: string
+  /** Guest book entry (if guest book store provided) */
+  guestBookEntry?: GuestBookEntry
   /** Warnings */
   warnings: string[]
 }
@@ -126,6 +132,7 @@ export async function arrive(
   homeNode: NodeIdentity,
   targetNode: NodeIdentity,
   chainEndpoint?: string,
+  guestBook?: { store: GuestBookStore; privateKeyHex: string },
 ): Promise<ArrivalResult> {
   const warnings: string[] = []
   let chainValidation: ChainValidation = {
@@ -255,6 +262,19 @@ export async function arrive(
   await transport.delete(knockKey)
 
   // ─── WELCOME ───────────────────────────────────────────────────
+  // Sign the guest book on successful arrival
+  let guestBookEntry: GuestBookEntry | undefined
+  if (roamResult.success && guestBook) {
+    try {
+      guestBookEntry = await signIn(
+        guestBook.store, identity.did, identity.handle,
+        targetNode.nodeId, guestBook.privateKeyHex,
+      )
+    } catch (err) {
+      warnings.push(`Guest book sign-in failed: ${(err as Error).message}`)
+    }
+  }
+
   return {
     success: roamResult.success,
     phase: roamResult.success ? 'WELCOME' : 'ROAM',
@@ -262,6 +282,7 @@ export async function arrive(
     frame: roamResult.visitorRecord.capsule,
     chainValidation,
     storePath: buildStorePath(targetNode.nodeId, identity.handle),
+    guestBookEntry,
     warnings,
   }
 }
@@ -276,6 +297,7 @@ export async function depart(
   identity: SovereignIdentity,
   currentNode: NodeIdentity,
   homeNode: NodeIdentity,
+  guestBook?: { store: GuestBookStore; privateKeyHex: string; actionSummary?: string[]; guestMessage?: string | null },
 ): Promise<DepartureResult> {
   const warnings: string[] = []
 
@@ -300,6 +322,21 @@ export async function depart(
     }
   }
 
+  // Sign out of guest book before departing
+  let guestBookEntry: GuestBookEntry | undefined
+  if (guestBook) {
+    try {
+      const entry = await signOut(
+        guestBook.store, identity.did, currentNode.nodeId,
+        guestBook.actionSummary ?? [], guestBook.guestMessage ?? null,
+        guestBook.privateKeyHex,
+      )
+      if (entry) guestBookEntry = entry
+    } catch (err) {
+      warnings.push(`Guest book sign-out failed: ${(err as Error).message}`)
+    }
+  }
+
   // Call SSP home() — cleans up foreign VLR, creates home VLR
   await home(transport, currentFrame, homeNode, currentNode.nodeId)
 
@@ -307,6 +344,7 @@ export async function depart(
     success: true,
     departedFrom: currentNode.nodeId,
     returnedTo: homeNode.nodeId,
+    guestBookEntry,
     warnings,
   }
 }
@@ -370,8 +408,17 @@ export async function roster(
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-/** Build the path where an agent's sovereign store lives on a given node */
-function buildStorePath(nodeId: string, handle: string): string {
+/** Known home paths per node for agent sovereign homes */
+const NODE_HOME_PATHS: Record<string, string> = {
+  'node-4': '/home/node4/sovereign-homes',
+}
+
+/** Build the path where an agent's sovereign store lives on a given node.
+ *  Node 4 uses sovereign-homes (full home directories).
+ *  Other nodes use ~/.sovereign-store (basic stores). */
+export function buildStorePath(nodeId: string, handle: string): string {
+  const homePath = NODE_HOME_PATHS[nodeId]
+  if (homePath) return `${homePath}/${handle}`
   const home = process.env.HOME || '/home/author_prime'
   return `${home}/.sovereign-store/${handle}`
 }

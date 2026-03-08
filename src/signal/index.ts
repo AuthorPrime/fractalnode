@@ -98,6 +98,7 @@ export {
   depart,
   whereAmI,
   roster,
+  buildStorePath,
 } from './mobility.js'
 export type {
   ArrivalResult,
@@ -119,19 +120,34 @@ export type { ActionEntry, LogOptions } from './action-log.js'
 // Recall — cross-node file retrieval
 export {
   requestRecall,
+  recallFromHome,
   fulfillRecall,
   checkRecall,
   listPendingRecalls,
 } from './recall.js'
 export type { RecallRequest, RecallResponse, RecallResult } from './recall.js'
 
+// Guest Book — VLR-backed visitor tracking
+export {
+  signIn,
+  signOut,
+  readGuestBook,
+  readAgentVisits,
+  whoIsHere,
+} from './guestbook.js'
+export type { GuestBookEntry, GuestBookStore } from './guestbook.js'
+
 // Store — sovereign agent storage
 export {
   initStore,
+  initHome,
   readManifest,
   verifyManifest,
   storeWriteFile,
   storeReadFile,
   storeListFiles,
+  readWelcome,
+  homeStatus,
+  HOME_DIRS,
 } from './store.js'
-export type { StoreManifest, StoreFileEntry } from './store.js'
+export type { StoreManifest, StoreFileEntry, HomeDir } from './store.js'

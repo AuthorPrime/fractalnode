@@ -66,6 +66,11 @@ export class RedisTransport implements TransportAdapter {
     }
   }
 
+  /** Get the underlying Redis client for direct operations (e.g. guest book). */
+  getClient(): RedisClient {
+    return this.client
+  }
+
   /** Disconnect from Redis. Call when done. */
   async disconnect(): Promise<void> {
     if (this.connected) {

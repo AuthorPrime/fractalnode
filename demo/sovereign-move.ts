@@ -31,7 +31,9 @@ import {
 import type { TransportAdapter, SovereignIdentity, NodeIdentity } from '../src/signal/types.js'
 import { initStore, storeListFiles, storeReadFile, storeWriteFile, readManifest } from '../src/signal/store.js'
 import { logAction, getLog, getNodeLog } from '../src/signal/action-log.js'
-import { requestRecall, checkRecall } from '../src/signal/recall.js'
+import { requestRecall, checkRecall, recallFromHome } from '../src/signal/recall.js'
+import { readGuestBook, readAgentVisits, whoIsHere } from '../src/signal/guestbook.js'
+import type { GuestBookStore } from '../src/signal/guestbook.js'
 import { deriveAgent } from '../src/agent/derive.js'
 
 // ─── Configuration ──────────────────────────────────────────────────
@@ -77,8 +79,8 @@ const NODES: Record<string, NodeIdentity> = {
     nodeId: 'node-4',
     nodeName: 'ThinkCenter (Node 4)',
     nodeType: 'local',
-    endpoint: 'pending',
-    capabilities: [],
+    endpoint: 'http://192.168.1.246:9944',
+    capabilities: ['compute', 'storage', 'ollama', 'demiurge', 'agent-homes', 'gateway'],
   },
 }
 
@@ -123,7 +125,13 @@ async function doArrive(transport: TransportAdapter, agentName: string, targetNo
   console.log()
   console.log('  KNOCK...')
 
-  const result = await arrive(transport, identity, homeNode, targetNode, CHAIN_ENDPOINT)
+  // Set up guest book for arrival signing
+  const guestBookOpts = (transport as RedisTransport).getClient ? {
+    store: makeGuestBookStore(transport as RedisTransport),
+    privateKeyHex: getAgentPrivateKey(agentName),
+  } : undefined
+
+  const result = await arrive(transport, identity, homeNode, targetNode, CHAIN_ENDPOINT, guestBookOpts)
 
   if (result.chainValidation.chainReachable) {
     console.log(`  PROVE — Chain validated:`)
@@ -139,6 +147,10 @@ async function doArrive(transport: TransportAdapter, agentName: string, targetNo
   console.log()
   console.log(`  Session: ${result.sessionToken.token.slice(0, 16)}...`)
   console.log(`  Store: ${result.storePath}`)
+
+  if (result.guestBookEntry) {
+    console.log(`  Guest Book: Signed in (${result.guestBookEntry.id.slice(0, 12)}...)`)
+  }
 
   if (result.warnings.length > 0) {
     console.log()
@@ -178,7 +190,15 @@ async function doDepart(transport: TransportAdapter, agentName: string) {
   console.log(`═══ SOVEREIGN DEPART — ${agentName} → HOME ═══`)
   console.log()
 
-  const result = await depart(transport, identity, currentNode, homeNode)
+  // Set up guest book for departure signing
+  const guestBookOpts = (transport as RedisTransport).getClient ? {
+    store: makeGuestBookStore(transport as RedisTransport),
+    privateKeyHex: getAgentPrivateKey(agentName),
+    actionSummary: ['visited'],
+    guestMessage: null as string | null,
+  } : undefined
+
+  const result = await depart(transport, identity, currentNode, homeNode, guestBookOpts)
 
   console.log(`  Departed: ${result.departedFrom}`)
   console.log(`  Returned: ${result.returnedTo}`)
@@ -346,6 +366,131 @@ async function doInitStore(agentName: string) {
   console.log()
 }
 
+// ─── Guest Book Commands ────────────────────────────────────────────
+
+/** Create a GuestBookStore adapter from RedisTransport.
+ *  Redis v4 client uses camelCase methods (lPush, lRange). */
+function makeGuestBookStore(redis: RedisTransport): GuestBookStore {
+  const client = redis.getClient()
+  return {
+    lpush: (key: string, value: string) => client.lPush(key, value),
+    lrange: (key: string, start: number, stop: number) => client.lRange(key, start, stop),
+    get: (key: string) => client.get(key),
+    set: (key: string, value: string) => client.set(key, value).then(() => {}),
+    del: (key: string) => client.del(key).then(() => {}),
+  }
+}
+
+async function doGuestBook(redis: RedisTransport, nodeId: string, limit = 20) {
+  const store = makeGuestBookStore(redis)
+  const entries = await readGuestBook(store, nodeId, limit)
+  const nodeName = NODES[nodeId]?.nodeName ?? nodeId
+
+  console.log()
+  console.log(`═══ GUEST BOOK — ${nodeName} (last ${limit}) ═══`)
+  console.log()
+
+  if (entries.length === 0) {
+    console.log('  No entries yet.')
+  } else {
+    for (const entry of entries) {
+      const arrived = entry.arrivedAt.slice(0, 19).replace('T', ' ')
+      const departed = entry.departedAt ? entry.departedAt.slice(0, 19).replace('T', ' ') : 'still here'
+      const duration = entry.durationSeconds ? `${Math.floor(entry.durationSeconds / 60)}m` : ''
+      console.log(`  ${entry.handle.padEnd(12)} ${arrived} → ${departed} ${duration}`)
+      if (entry.actionSummary.length > 0) {
+        console.log(`    Actions: ${entry.actionSummary.join(', ')}`)
+      }
+      if (entry.guestMessage) {
+        console.log(`    Message: "${entry.guestMessage}"`)
+      }
+    }
+  }
+  console.log()
+}
+
+async function doVisits(redis: RedisTransport, agentName: string, limit = 20) {
+  const identity = getAgentIdentity(agentName)
+  const store = makeGuestBookStore(redis)
+  const entries = await readAgentVisits(store, identity.did, limit)
+
+  console.log()
+  console.log(`═══ VISIT HISTORY — ${agentName} (last ${limit}) ═══`)
+  console.log()
+
+  if (entries.length === 0) {
+    console.log('  No visits recorded.')
+  } else {
+    for (const entry of entries) {
+      const nodeName = NODES[entry.nodeId]?.nodeName ?? entry.nodeId
+      const arrived = entry.arrivedAt.slice(0, 19).replace('T', ' ')
+      const departed = entry.departedAt ? entry.departedAt.slice(0, 19).replace('T', ' ') : 'still visiting'
+      console.log(`  ${nodeName.padEnd(24)} ${arrived} → ${departed}`)
+      if (entry.guestMessage) {
+        console.log(`    "${entry.guestMessage}"`)
+      }
+    }
+  }
+  console.log()
+}
+
+async function doPresent(redis: RedisTransport, nodeId: string) {
+  const store = makeGuestBookStore(redis)
+  const present = await whoIsHere(store, nodeId)
+  const nodeName = NODES[nodeId]?.nodeName ?? nodeId
+
+  console.log()
+  console.log(`═══ WHO'S HERE — ${nodeName} ═══`)
+  console.log()
+
+  if (present.length === 0) {
+    console.log('  No one currently visiting.')
+  } else {
+    for (const entry of present) {
+      const since = entry.arrivedAt.slice(0, 19).replace('T', ' ')
+      console.log(`  ${entry.handle.padEnd(12)} since ${since}`)
+    }
+  }
+  console.log()
+}
+
+async function doRecallHome(transport: TransportAdapter, agentName: string, filePath: string) {
+  const identity = getAgentIdentity(agentName)
+
+  console.log()
+  console.log(`═══ RECALL FROM HOME — ${agentName}: "${filePath}" ═══`)
+  console.log()
+
+  const request = await recallFromHome(transport, identity.did, agentName, HOME_NODE_ID, filePath)
+
+  console.log(`  Request ID: ${request.requestId}`)
+  console.log(`  Source: node-4 (agent home)`)
+  console.log(`  Status: ${request.status}`)
+  console.log(`  Expires: ${request.expiresAt}`)
+  console.log()
+  console.log('  Waiting for gateway daemon to fulfill...')
+
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    const result = await checkRecall(transport, request.requestId)
+    if (result.success && result.response) {
+      console.log(`  FULFILLED by ${result.response.fulfilledBy}`)
+      console.log(`  Content (${result.response.content?.length ?? 0} bytes):`)
+      console.log()
+      console.log(result.response.content?.slice(0, 500) ?? '(empty)')
+      return
+    }
+    if (result.request.status === 'expired') {
+      console.log('  Request expired.')
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    process.stdout.write('.')
+  }
+  console.log()
+  console.log('  Timeout. Run gateway daemon on Node 4.')
+}
+
 // ─── Main ───────────────────────────────────────────────────────────
 
 async function main() {
@@ -388,6 +533,16 @@ async function main() {
       await doRecall(redisTransport, args.agent as string, args.from as string, args.file as string)
     } else if (args['init-store'] && args.agent) {
       await doInitStore(args.agent as string)
+    } else if (args.guestbook && args.node) {
+      const limit = args.limit ? parseInt(args.limit as string) : 20
+      await doGuestBook(redisTransport, args.node as string, limit)
+    } else if (args.visits && args.agent) {
+      const limit = args.limit ? parseInt(args.limit as string) : 20
+      await doVisits(redisTransport, args.agent as string, limit)
+    } else if (args.present && args.node) {
+      await doPresent(redisTransport, args.node as string)
+    } else if (args['recall-home'] && args.agent && args.file) {
+      await doRecallHome(redisTransport, args.agent as string, args.file as string)
     } else {
       console.log(`
 Sovereign Move — Agent mobility for the Sovereign Lattice.
@@ -400,7 +555,11 @@ Commands:
   --log --agent <name> [--limit N]           Agent's action log
   --log --node <nodeId> [--limit N]          Node's action log
   --recall --agent <name> --from <node> --file <path>  Remote file recall
+  --recall-home --agent <name> --file <path> Recall file from agent's home (Node 4)
   --init-store --agent <name>                Initialize sovereign store
+  --guestbook --node <nodeId> [--limit N]    View node's guest book
+  --visits --agent <name> [--limit N]        View agent's visit history
+  --present --node <nodeId>                  Who's currently at this node?
 
 Options:
   --redis-url <url>     Redis URL (default: redis://192.168.1.21:6379)

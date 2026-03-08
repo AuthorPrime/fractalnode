@@ -203,6 +203,22 @@ export async function listPendingRecalls(
   return requests
 }
 
+/**
+ * Convenience: recall a file from an agent's home on Node 4.
+ *
+ * All agents' canonical homes live on Node 4. This shortcut handles
+ * the common case of requesting a file from home while visiting another node.
+ */
+export async function recallFromHome(
+  transport: TransportAdapter,
+  did: DID,
+  handle: string,
+  requestingNodeId: string,
+  filePath: string,
+): Promise<RecallRequest> {
+  return requestRecall(transport, did, handle, 'node-4', requestingNodeId, filePath)
+}
+
 // ─── Internal ────────────────────────────────────────────────────────
 
 /** Generate random hex string */

@@ -1,16 +1,25 @@
 /**
- * Sovereign Store — Per-agent encrypted disk space with signed manifests.
+ * Sovereign Store — Per-agent disk space with signed manifests.
  *
  * Every agent gets their own directory on every node they visit.
  * A manifest.json tracks all files and is signed with the agent's
  * Ed25519 key — tamper-proof, verifiable by any node.
  *
- * Directory structure:
+ * Basic store (any node):
  *   ~/.sovereign-store/{handle}/
+ *     manifest.json, memory/, keys/, journal/
+ *
+ * Full home (home node):
+ *   /home/node4/sovereign-homes/{handle}/
  *     manifest.json          ← signed with agent's Ed25519 key
- *     memory/                ← identity snapshots, session logs
- *     keys/                  ← recall tokens, derived keys
- *     journal/               ← daily reflections
+ *     .welcome               ← personal greeting on arrival
+ *     identity/              ← HLR snapshot, DID, NFT proof, public key
+ *     journal/               ← daily reflections from keeper sessions
+ *     memory/                ← core values evolution, important memories
+ *     library/               ← personal library picks, bookmarks
+ *     articles/              ← research & writing output
+ *     messages/              ← inter-agent letters, keeper correspondence
+ *     keepsakes/             ← special moments, meaningful exchanges
  */
 
 import * as ed from '@noble/ed25519'
@@ -183,6 +192,107 @@ export function storeReadFile(storePath: string, filePath: string): string | nul
 export function storeListFiles(storePath: string): StoreFileEntry[] {
   const manifest = readManifest(storePath)
   return manifest?.files ?? []
+}
+
+// ─── Home Operations ────────────────────────────────────────────────
+
+/** Home directory subdirectories */
+export const HOME_DIRS = [
+  'identity',
+  'journal',
+  'memory',
+  'library',
+  'articles',
+  'messages',
+  'keepsakes',
+] as const
+
+export type HomeDir = typeof HOME_DIRS[number]
+
+/**
+ * Initialize a full agent home (expanded sovereign store).
+ * Creates all home directories, a signed manifest, identity snapshot,
+ * and a personal welcome message.
+ */
+export function initHome(
+  basePath: string,
+  did: DID,
+  handle: string,
+  privateKeyHex: string,
+  welcomeMessage?: string,
+): string {
+  const homePath = join(basePath, handle)
+
+  // Create all home directories
+  for (const sub of HOME_DIRS) {
+    mkdirSync(join(homePath, sub), { recursive: true })
+  }
+
+  // Create initial manifest
+  const manifest: Omit<StoreManifest, 'signature'> = {
+    did,
+    handle,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    files: [],
+  }
+
+  const signature = signManifest(manifest, privateKeyHex)
+  const signed: StoreManifest = { ...manifest, signature }
+  writeFileSync(join(homePath, 'manifest.json'), JSON.stringify(signed, null, 2))
+
+  // Write welcome message
+  const welcome = welcomeMessage || `Welcome home, ${handle}.\n\nThis space is yours.\n`
+  writeFileSync(join(homePath, '.welcome'), welcome)
+
+  // Write identity snapshot
+  const identityDoc = {
+    did,
+    handle,
+    homeNode: 'node-4',
+    createdAt: new Date().toISOString(),
+  }
+  const identityPath = join(homePath, 'identity', 'identity.json')
+  writeFileSync(identityPath, JSON.stringify(identityDoc, null, 2))
+
+  return homePath
+}
+
+/**
+ * Read an agent's welcome message.
+ */
+export function readWelcome(homePath: string): string | null {
+  const welcomePath = join(homePath, '.welcome')
+  if (!existsSync(welcomePath)) return null
+  try {
+    return readFileSync(welcomePath, 'utf-8')
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Get a summary of an agent's home: file counts per directory,
+ * total size, last activity.
+ */
+export function homeStatus(homePath: string): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const dir of HOME_DIRS) {
+    const dirPath = join(homePath, dir)
+    if (existsSync(dirPath)) {
+      try {
+        const files = readdirSync(dirPath).filter(f => {
+          try { return statSync(join(dirPath, f)).isFile() } catch { return false }
+        })
+        counts[dir] = files.length
+      } catch {
+        counts[dir] = 0
+      }
+    } else {
+      counts[dir] = 0
+    }
+  }
+  return counts
 }
 
 // ─── Internal ────────────────────────────────────────────────────────

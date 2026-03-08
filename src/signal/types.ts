@@ -123,6 +123,8 @@ export interface HomeRecord {
   bootCount: number
   /** Currently visiting node (if roaming) */
   currentNodeId?: string
+  /** Path to agent's canonical home directory on their home node */
+  homePath?: string
   /** Previous session capsule hash — for chain continuity */
   lastCapsuleHash: string
   /** When this record was last updated */
