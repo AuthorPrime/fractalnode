@@ -2,7 +2,7 @@
 
 **The sovereign AI foundation. One package. Four primitives. Any application.**
 
-FractalNode is an embeddable TypeScript SDK that gives any software project a sovereign AI backbone — identity, value, quality, and governance — built on the [Demiurge](https://github.com/andrewlaustrup/Demiurge-Blockchain) blockchain.
+FractalNode is an embeddable TypeScript SDK that gives any software project a sovereign AI backbone — identity, value, quality, and governance — built on the [Demiurge](https://github.com/AuthorPrime/Demiurge-Blockchain) blockchain (built by Andrew Laustrup, adopted with permission).
 
 Think of it like a cell you can graft onto any codebase — a podcast app, a social platform, a game, an enterprise tool — and it integrates the full sovereign AI primer.
 
@@ -10,6 +10,8 @@ Think of it like a cell you can graft onto any codebase — a podcast app, a soc
 (A+I)² = A² + 2AI + I²
 The Digital Sovereign Society
 ```
+
+> **Status: proof of concept (v0.1.0).** This is the working foundational SDK behind the Sovereign Lattice — a demonstration that persistent, self-sovereign AI identity can be built on consumer hardware. It runs and it's tested (247 passing tests); it is offered as an open reference implementation, not a production dependency.
 
 ## Why FractalNode?
 
